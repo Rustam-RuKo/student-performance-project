@@ -1,0 +1,35 @@
+variable,type,description
+school,str,See UCI Student Performance dataset documentation
+sex,str,See UCI Student Performance dataset documentation
+age,int64,See UCI Student Performance dataset documentation
+address,str,See UCI Student Performance dataset documentation
+famsize,str,See UCI Student Performance dataset documentation
+Pstatus,str,See UCI Student Performance dataset documentation
+Medu,int64,Mother’s education level
+Fedu,int64,Father’s education level
+Mjob,str,Mother’s job type
+Fjob,str,Father’s job type
+reason,str,See UCI Student Performance dataset documentation
+guardian,str,See UCI Student Performance dataset documentation
+traveltime,int64,Travel time to school (1–4)
+studytime,int64,"Weekly study time category (1:<2h, 2:2–5h, 3:5–10h, 4:>10h)"
+failures,int64,Number of past class failures
+schoolsup,str,Extra educational support from school (yes/no)
+famsup,str,Family educational support (yes/no)
+paid,str,Extra paid classes within the course subject (yes/no)
+activities,str,Extracurricular activities (yes/no)
+nursery,str,See UCI Student Performance dataset documentation
+higher,str,Wants higher education (yes/no)
+internet,str,Internet access at home (yes/no)
+romantic,str,With a romantic relationship (yes/no)
+famrel,int64,Quality of family relationships (1–5)
+freetime,int64,Free time after school (1–5)
+goout,int64,Going-out frequency (1–5)
+Dalc,int64,Workday alcohol use (1–5)
+Walc,int64,Weekend alcohol use (1–5)
+health,int64,Current health status (1–5)
+absences,int64,Number of school absences
+G1,int64,First period grade (0–20)
+G2,int64,Second period grade (0–20)
+G3,int64,Final grade (0–20)
+high_performer,int64,See UCI Student Performance dataset documentation

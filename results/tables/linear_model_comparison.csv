@@ -1,5 +1,2 @@
-model,cv_mse,cv_r2,selected_param
-OLS,4.261176573,0.791629201,
-Ridge,4.250571422,0.792293216,alpha=5.623
-Lasso,3.77399992,0.817770326,alpha=0.1468
-,,,
+model,cv_rmse,test_rmse
+Linear Regression (Standardized),1.9869466398323212,2.3783697847961363

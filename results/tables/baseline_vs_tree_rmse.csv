@@ -1,0 +1,3 @@
+model,cv_rmse,test_rmse
+Baseline (LinearRegression),1.9869466398323214,2.3783697847961376
+Nonlinear (Tuned DecisionTree),1.7181849062596097,2.6847187817241225

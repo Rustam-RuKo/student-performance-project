@@ -1,2 +1,2 @@
-rows,columns,num_features,G3_min,G3_max,high_perf_cutoff,high_perf_rate
-395,43,41,0,20,14,0.25316455696202533
+n_rows,n_features_total_including_targets,n_features_excluding_targets,n_missing_total,high_performer_rate
+395,43,41,0,0.25316455696202533

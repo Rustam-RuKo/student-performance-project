@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -33,6 +32,12 @@ def load_raw() -> pd.DataFrame:
 
 
 def basic_clean(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Light cleaning that stays faithful to the original dataset:
+    - drop duplicates
+    - coerce grade columns to numeric
+    - fill missing numeric with median, categorical with mode
+    """
     df = df.drop_duplicates().reset_index(drop=True)
 
     for col in ["G1", "G2", "G3"]:
@@ -62,6 +67,11 @@ def add_targets(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def encode_for_model(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Produces a single modeling table:
+    - keeps targets: G3 (regression) and high_performer (classification)
+    - one-hot encodes categorical features with drop_first=True
+    """
     target_cols = ["G3", "high_performer"]
     missing = [c for c in target_cols if c not in df.columns]
     if missing:
@@ -74,58 +84,50 @@ def encode_for_model(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def write_data_dictionary(raw_df: pd.DataFrame) -> None:
-    # Minimal, readable dictionary for common columns.
-    # If some columns are absent, it still writes what exists.
     dictionary = {
         "G1": "First period grade (0–20)",
         "G2": "Second period grade (0–20)",
         "G3": "Final grade (0–20)",
-        "studytime": "Weekly study time category (1:<2h, 2:2–5h, 3:5–10h, 4:>10h)",
+        "high_performer": f"Binary label: 1 if G3 >= {CUTOFF}, else 0",
+        "age": "Student age",
+        "studytime": "Weekly study time (ordinal buckets)",
+        "failures": "Past class failures",
         "absences": "Number of school absences",
-        "failures": "Number of past class failures",
-        "goout": "Going-out frequency (1–5)",
-        "freetime": "Free time after school (1–5)",
-        "Dalc": "Workday alcohol use (1–5)",
-        "Walc": "Weekend alcohol use (1–5)",
-        "health": "Current health status (1–5)",
-        "activities": "Extracurricular activities (yes/no)",
-        "schoolsup": "Extra educational support from school (yes/no)",
-        "famsup": "Family educational support (yes/no)",
-        "paid": "Extra paid classes within the course subject (yes/no)",
-        "higher": "Wants higher education (yes/no)",
+        "Medu/Fedu": "Mother/Father education (ordinal)",
+        "Mjob/Fjob": "Mother/Father job category",
+        "schoolsup/famsup": "Extra educational support / family support (yes/no)",
+        "higher": "Wants to take higher education (yes/no)",
         "internet": "Internet access at home (yes/no)",
-        "romantic": "With a romantic relationship (yes/no)",
-        "Medu": "Mother’s education level",
-        "Fedu": "Father’s education level",
-        "Mjob": "Mother’s job type",
-        "Fjob": "Father’s job type",
-        "traveltime": "Travel time to school (1–4)",
-        "famrel": "Quality of family relationships (1–5)",
+        "romantic": "In a romantic relationship (yes/no)",
+        "health": "Current health status (ordinal)",
     }
 
     rows = []
     for col in raw_df.columns:
         rows.append(
             {
-                "variable": col,
-                "type": str(raw_df[col].dtype),
-                "description": dictionary.get(col, "See UCI Student Performance dataset documentation"),
+                "column": col,
+                "dtype": str(raw_df[col].dtype),
+                "description": dictionary.get(col, ""),
+                "n_unique": int(raw_df[col].nunique(dropna=True)),
+                "example_values": ", ".join(map(str, raw_df[col].dropna().unique()[:5])),
             }
         )
-
     pd.DataFrame(rows).to_csv(OUT_DICT, index=False)
 
 
-def write_overview_table(model_df: pd.DataFrame, raw_df: pd.DataFrame) -> None:
+def write_overview(df: pd.DataFrame) -> None:
     overview = pd.DataFrame(
         {
-            "rows": [model_df.shape[0]],
-            "columns": [model_df.shape[1]],
-            "num_features": [model_df.shape[1] - 2],
-            "G3_min": [raw_df["G3"].min()],
-            "G3_max": [raw_df["G3"].max()],
-            "high_perf_cutoff": [CUTOFF],
-            "high_perf_rate": [raw_df["high_performer"].mean()],
+            "n_rows": [len(df)],
+            "n_features_total_including_targets": [df.shape[1]],
+            "n_features_excluding_targets": [
+                df.drop(columns=["G3", "high_performer"], errors="ignore").shape[1]
+            ],
+            "n_missing_total": [int(df.isna().sum().sum())],
+            "high_performer_rate": [
+                float(df["high_performer"].mean()) if "high_performer" in df.columns else np.nan
+            ],
         }
     )
     overview.to_csv(OUT_OVERVIEW, index=False)
@@ -135,23 +137,20 @@ def main() -> None:
     ensure_dirs()
 
     raw = load_raw()
-    raw = basic_clean(raw)
-    raw = add_targets(raw)
+    cleaned = basic_clean(raw)
+    with_targets = add_targets(cleaned)
+    model_df = encode_for_model(with_targets)
 
-    model_df = encode_for_model(raw)
     model_df.to_csv(OUT_CLEAN, index=False)
 
     write_data_dictionary(raw)
-    write_overview_table(model_df, raw)
+    write_overview(model_df)
 
-    print(f"Saved clean dataset: {OUT_CLEAN}")
-    print(f"Saved data dictionary: {OUT_DICT}")
-    print(f"Saved data overview table: {OUT_OVERVIEW}")
+    print("Saved:")
+    print(" - Clean modeling dataset:", OUT_CLEAN)
+    print(" - Data dictionary:", OUT_DICT)
+    print(" - Data overview:", OUT_OVERVIEW)
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except Exception as e:
-        print(f"ERROR: {e}", file=sys.stderr)
-        raise
+    main()

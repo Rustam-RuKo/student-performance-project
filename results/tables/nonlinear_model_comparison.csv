@@ -1,0 +1,4 @@
+model,cv_rmse,test_rmse,test_mae,test_r2,best_params
+Baseline OLS (Standardized),1.9869466398323212,2.3783697847961363,1.6466656197147496,0.7241341236974023,
+Decision Tree (tuned),1.6314067386798512,2.4604214117447736,1.4113883865782597,0.7047715401856222,"{'max_depth': 5, 'min_samples_leaf': 2, 'min_samples_split': 10}"
+Random Forest (tuned),1.479443460961215,1.9642399567249762,1.1746835443037977,0.8118395652955335,"{'max_depth': None, 'max_features': 1.0, 'min_samples_leaf': 1, 'min_samples_split': 2, 'n_estimators': 400}"

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -8,14 +7,16 @@ import matplotlib.pyplot as plt
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-RAW_PATH = PROJECT_ROOT / "data" / "raw" / "student-mat.csv"
 CLEAN_PATH = PROJECT_ROOT / "data" / "processed" / "clean_student.csv"
 
 PLOTS_DIR = PROJECT_ROOT / "results" / "plots"
 TABLES_DIR = PROJECT_ROOT / "results" / "tables"
 
-OUT_SUMMARY = TABLES_DIR / "eda_summary.csv"
-OUT_GROUPS = TABLES_DIR / "eda_group_means.csv"
+OUT_CORR_TABLE = TABLES_DIR / "top_correlations_with_G3.csv"
+OUT_G3_HIST = PLOTS_DIR / "g3_distribution.png"
+OUT_G1_G3 = PLOTS_DIR / "g1_vs_g3.png"
+OUT_G2_G3 = PLOTS_DIR / "g2_vs_g3.png"
+OUT_TOP_CORR_BAR = PLOTS_DIR / "top_correlations_with_G3.png"
 
 
 def ensure_dirs() -> None:
@@ -23,93 +24,72 @@ def ensure_dirs() -> None:
     TABLES_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def load_raw_for_readable_plots() -> pd.DataFrame:
-    if not RAW_PATH.exists():
-        raise FileNotFoundError(f"Missing raw dataset at: {RAW_PATH}")
-    return pd.read_csv(RAW_PATH, sep=";")
-
-
-def save_plot(fig, path: Path) -> None:
-    fig.tight_layout()
-    fig.savefig(path, dpi=200)
-    plt.close(fig)
-
-
 def main() -> None:
     ensure_dirs()
 
-    raw = load_raw_for_readable_plots()
+    if not CLEAN_PATH.exists():
+        raise FileNotFoundError(
+            f"Missing cleaned dataset at: {CLEAN_PATH}. Run scripts/01_preprocess.py first."
+        )
 
-    needed = ["G3", "studytime", "absences", "goout"]
-    missing = [c for c in needed if c not in raw.columns]
-    if missing:
-        raise ValueError(f"Raw dataset missing columns needed for EDA: {missing}")
+    df = pd.read_csv(CLEAN_PATH)
 
-    # Summary stats table
-    summary = raw[["G3", "studytime", "absences", "goout"]].describe().T
-    summary.to_csv(OUT_SUMMARY)
+    if "G3" not in df.columns:
+        raise ValueError("Expected 'G3' in clean_student.csv")
 
-    # Group means for quick interpretation
-    group_means = (
-        raw.groupby("studytime", as_index=False)["G3"]
-        .agg(["count", "mean", "median"])
-        .reset_index()
-        .rename(columns={"mean": "G3_mean", "median": "G3_median"})
-    )
-    group_means.to_csv(OUT_GROUPS, index=False)
-
-    # Plot 1: Histogram of G3
+    # 1) Target distribution
     fig = plt.figure()
-    plt.hist(raw["G3"], bins=10)
+    plt.hist(df["G3"], bins=21)
+    plt.xlabel("G3 (Final Grade)")
+    plt.ylabel("Count")
     plt.title("Distribution of Final Grade (G3)")
-    plt.xlabel("G3")
-    plt.ylabel("Count")
-    save_plot(fig, PLOTS_DIR / "eda_G3_hist.png")
+    fig.tight_layout()
+    fig.savefig(OUT_G3_HIST, dpi=200)
+    plt.close(fig)
 
-    # Plot 2: Histogram of absences
+    # 2) G1/G2 relationships (important since you keep them)
+    if "G1" in df.columns:
+        fig = plt.figure()
+        plt.scatter(df["G1"], df["G3"], s=10)
+        plt.xlabel("G1 (First Period Grade)")
+        plt.ylabel("G3 (Final Grade)")
+        plt.title("G1 vs G3")
+        fig.tight_layout()
+        fig.savefig(OUT_G1_G3, dpi=200)
+        plt.close(fig)
+
+    if "G2" in df.columns:
+        fig = plt.figure()
+        plt.scatter(df["G2"], df["G3"], s=10)
+        plt.xlabel("G2 (Second Period Grade)")
+        plt.ylabel("G3 (Final Grade)")
+        plt.title("G2 vs G3")
+        fig.tight_layout()
+        fig.savefig(OUT_G2_G3, dpi=200)
+        plt.close(fig)
+
+    # 3) Correlations with G3 (numeric only)
+    num_df = df.select_dtypes(include=[np.number])
+    corr = num_df.corr(numeric_only=True)["G3"].sort_values(ascending=False)
+    corr_table = corr.drop(index=["G3"]).to_frame(name="corr_with_G3")
+    corr_table.to_csv(OUT_CORR_TABLE)
+
+    top = corr_table.head(15)
     fig = plt.figure()
-    plt.hist(raw["absences"], bins=15)
-    plt.title("Distribution of Absences")
-    plt.xlabel("Absences")
-    plt.ylabel("Count")
-    save_plot(fig, PLOTS_DIR / "eda_absences_hist.png")
+    plt.barh(top.index[::-1], top["corr_with_G3"].values[::-1])
+    plt.xlabel("Correlation with G3")
+    plt.title("Top Numeric Feature Correlations with G3")
+    fig.tight_layout()
+    fig.savefig(OUT_TOP_CORR_BAR, dpi=200)
+    plt.close(fig)
 
-    # Plot 3: Boxplot of G3 by studytime
-    fig = plt.figure()
-    cats = sorted(raw["studytime"].unique())
-    data = [raw.loc[raw["studytime"] == k, "G3"] for k in cats]
-    plt.boxplot(data, labels=cats)
-    plt.title("G3 by Weekly Study Time Category")
-    plt.xlabel("studytime (1:<2h, 2:2–5h, 3:5–10h, 4:>10h)")
-    plt.ylabel("G3")
-    save_plot(fig, PLOTS_DIR / "eda_G3_by_studytime_box.png")
-
-    # Plot 4: Boxplot of G3 by goout
-    fig = plt.figure()
-    go = sorted(raw["goout"].unique())
-    data = [raw.loc[raw["goout"] == k, "G3"] for k in go]
-    plt.boxplot(data, labels=go)
-    plt.title("G3 by Going-Out Frequency (goout)")
-    plt.xlabel("goout (1–5)")
-    plt.ylabel("G3")
-    save_plot(fig, PLOTS_DIR / "eda_G3_by_goout_box.png")
-
-    # Plot 5: Scatter absences vs G3
-    fig = plt.figure()
-    plt.scatter(raw["absences"], raw["G3"])
-    plt.title("Absences vs Final Grade (G3)")
-    plt.xlabel("Absences")
-    plt.ylabel("G3")
-    save_plot(fig, PLOTS_DIR / "eda_absences_vs_G3_scatter.png")
-
-    print(f"Saved summary table: {OUT_SUMMARY}")
-    print(f"Saved group means: {OUT_GROUPS}")
-    print(f"Saved plots into: {PLOTS_DIR}")
+    print("Saved:")
+    print(" -", OUT_G3_HIST)
+    print(" -", OUT_G1_G3 if "G1" in df.columns else "(G1 missing)")
+    print(" -", OUT_G2_G3 if "G2" in df.columns else "(G2 missing)")
+    print(" -", OUT_CORR_TABLE)
+    print(" -", OUT_TOP_CORR_BAR)
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except Exception as e:
-        print(f"ERROR: {e}", file=sys.stderr)
-        raise
+    main()
